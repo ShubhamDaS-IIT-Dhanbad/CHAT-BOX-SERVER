@@ -5,7 +5,7 @@ import {User} from './models/userSchema.js';
 const setupSocket = (server) => {
     const io = new WebSocketServer(server, {
         cors: {
-            origin: "http://localhost:5173",
+            oorigin: "https://chat-box-frontend-sigma.vercel.app",
             methods: ["GET", "POST"],
             credentials: true // Allow credentials (cookies, authorization headers, etc.)
         },
