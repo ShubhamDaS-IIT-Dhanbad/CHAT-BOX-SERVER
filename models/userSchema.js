@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { Schema } from "mongoose";
 
-// Define the Friend Request schema
+// Define the Friend Request schemas
 const friendRequestReceivedSchema = new Schema({
     sender: {
         type: Schema.Types.ObjectId,
@@ -14,11 +14,10 @@ const friendRequestReceivedSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected'], // Enum for request status
-        default: 'pending' // Default status when the request is created
+        enum: ['pending', 'accepted', 'rejected'],
+        default: 'pending'
     }
 });
-
 
 const friendRequestSendSchema = new Schema({
     receiver: {
@@ -32,8 +31,8 @@ const friendRequestSendSchema = new Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected'], // Enum for request status
-        default: 'pending' // Default status when the request is created
+        enum: ['pending', 'accepted', 'rejected'],
+        default: 'pending'
     }
 });
 
@@ -41,26 +40,30 @@ const friendRequestSendSchema = new Schema({
 const userSchema = new Schema(
     {
         userName: {
-            type: String
+            type: String,
+            required: true // Added required validation
         },
-        online:{
-            type:Boolean,
-            default:false
+        online: {
+            type: Boolean,
+            default: false
         },
         firstName: {
             type: String,
+            required: true // Added required validation
         },
         middleName: {
             type: String,
         },
         lastName: {
             type: String,
+            required: true // Added required validation
         },
         mobileNumber: {
             type: String
         },
         email: {
             type: String,
+            required: true // Added required validation
         },
         contact: [
             {
@@ -68,11 +71,11 @@ const userSchema = new Schema(
                 ref: "User"
             }
         ],
-        friendRequestSend: [friendRequestSendSchema], // Embed the Friend Request schema here,
-        friendRequestReceived: [friendRequestReceivedSchema], // Embed the Friend Request schema here
+        friendRequestSend: [friendRequestSendSchema],
+        friendRequestReceived: [friendRequestReceivedSchema],
         isOnline: {
             type: Boolean,
-            enum: [0, 1]
+            default: false // Changed to Boolean with default
         },
         uid: {
             type: String,
@@ -80,7 +83,13 @@ const userSchema = new Schema(
         },
         socketId: {
             type: String
-        }
+        },
+        group: [
+            {
+                type: Schema.Types.ObjectId,
+                ref: 'Group' // Assuming you have a Group model
+            }
+        ]
     },
     { timestamps: true }
 );

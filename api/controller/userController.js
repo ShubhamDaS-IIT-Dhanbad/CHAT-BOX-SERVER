@@ -1,4 +1,5 @@
 import { User } from '../../models/userSchema.js';
+import { Group } from '../../models/groupSchema.js';
 
 const registerUser = async (req, res) => {
   const { email, firstName, lastName, uid, userName } = req.body;
@@ -80,6 +81,30 @@ const userData = async (req, res) => {
   }
 };
 
+const userDataById = async (req, res) => {
+  try {
+    const _id = req.query.userId;
+    const user = await User.findById(_id);
+
+    if (!user) {
+      return res.status(404).send('User not found');
+    } 
+
+    res.json({
+      firstName: user.firstName,
+      lastName:user.lastName,
+      userName: user.userName,
+      online: user.online,
+      _id: user._id,
+    });
+
+
+  }catch (error) {
+    console.error("Error fetching user data:", error);
+    res.status(500).send('Server error: ' + error.message);
+  }
+};
+
 
 
 const contactData = async (req, res) => {
@@ -122,7 +147,7 @@ const updateData = async (req, res) => {
     const updatedUser = await User.findOneAndUpdate(
       { uid },
       { 
-        socketId,
+        socketId:socketId,
         online: true  // Set the online status to true
       },
       { 
@@ -202,6 +227,207 @@ const updateOnlineStatus = async (req, res) => {
 
 
 
+const creategroup = async (req, res) => {
+  const userId = req.query.userId; // Use req.body for POST requests
+  const groupName = req.query.groupName; // Use req.body for POST requests
+
+  
+
+  try {
+      // Find the user by ID (assuming you have a User model)
+      const user = await User.findById(userId);
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      console.log('1');
+        // Create a new group
+        const newGroup = new Group({
+          creator: user._id, // Ensure this is correct
+          members: [user._id], // Initialize with the owner as a member
+          groupName: groupName, // Set the group name
+      });
+      await newGroup.save();
+      console.log('2');
+      // Add the new group's ID to the user's groups
+      user.group.push(newGroup._id); // Assuming user.groups is an array of ObjectId
+      await user.save();
+
+      return res.status(200).json({
+          message: 'Group created successfully',
+          group: newGroup, // Optionally return the created group
+      });
+  } catch (error) {
+      console.error("Error creating group:", error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+};
 
 
-export { registerUser, userData, contactData, updateData, userNameData,updateOnlineStatus };
+
+const fetchgroup = async (req, res) => {
+  const userId = req.query.userId; 
+
+  try {
+      const user = await User.findById(userId).populate('group'); // Populate the group field
+
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+
+      return res.status(200).json({
+          message: 'Groups fetched successfully',
+          groups: user.group, // Assuming group is an array of group IDs
+      });
+  } catch (error) {
+      console.error("Error fetching groups:", error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+const searchgroup = async (req, res) => {
+  const query = req.query.query; // Extract query from params
+console.log(query);
+  try {
+      // Fetch groups that the user is a member of and match the search query
+      const groups = await Group.find({
+          groupName: { $regex: query, $options: 'i' } // Case-insensitive search
+      });
+console.log(groups);
+      return res.status(200).json({ groups });
+  } catch (error) {
+      console.error("Error searching groups:", error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+const joingroup = async (req, res) => {
+  const userId= req.query.userId;
+  const groupId =req.query.groupId; 
+
+  console.log("joij");
+  try {
+      // Find the group by ID
+      const group = await Group.findById(groupId);
+      if (!group) {
+          return res.status(404).json({ message: 'Group not found' });
+      }
+
+      // Check if the user is already a member
+      if (group.members.includes(userId)) {
+          return res.status(400).json({ message: 'User is already a member of this group' });
+      }
+
+      group.members.push(userId);
+      await group.save();
+
+      const user = await User.findById(userId);
+      if (!user) {
+          return res.status(404).json({ message: 'User not found' });
+      }
+      
+      user.group.push(groupId);
+      await user.save();
+
+      return res.status(200).json({ message: 'User successfully joined the group', group });
+  } catch (error) {
+      console.error("Error joining group:", error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+
+const sendmessageingroup = async (req, res) => {
+  const groupId= req.query.groupId;
+  const userId= req.query.userId;
+  const messageContent = req.query.messageContent;
+  console.log("ko",groupId,userId,messageContent);
+  try {
+      // Find the group by ID
+      const group = await Group.findById(groupId);
+      if (!group) {
+          return res.status(404).json({ message: 'Group not found' });
+      }
+
+      // Check if the user is a member of the group
+      if (!group.members.includes(userId)) {
+          return res.status(403).json({ message: 'You are not a member of this group' });
+      }
+
+      // Create the new message
+      const newMessage = {
+          user: userId,
+          message: messageContent,
+      };
+
+      // Push the new message to the group's messages array
+      group.messages.push(newMessage);
+      await group.save();
+
+      return res.status(200).json({
+          message: 'Message sent successfully',
+          newMessage,
+      });
+  } catch (error) {
+      console.error("Error sending message:", error);
+      return res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+const fetchgroupmessage = async (req, res) => {
+  const  groupId  = req.query.groupId;
+
+  if (!groupId) {
+      return res.status(400).json({
+          message: 'Group ID is required'
+      });
+  }
+
+  try {
+      const group = await Group.findById(groupId).populate('messages.user', 'username'); // Assuming User model has a 'username' field
+
+      if (!group) {
+          return res.status(404).json({
+              message: 'Group not found'
+          });
+      }
+console.log(group)
+      res.status(200).json({
+          message: "Successfully fetched group messages",
+          group: group // Return the messages array
+      });
+  } catch (error) {
+      console.error("Error fetching group messages:", error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+const fetchgroupdetail = async (req, res) => {
+  const groupId = req.query.groupId;
+
+  if (!groupId) {
+      return res.status(400).json({ message: 'Group ID is required' });
+  }
+
+  try {
+      const group = await Group.findById(groupId); // Fetch the group by its ID
+
+      if (!group) {
+          return res.status(404).json({ message: 'Group not found' });
+      }
+
+      res.json({ group });
+  } catch (err) {
+      console.error("Error fetching group by ID:", err);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+
+export { registerUser, userData,userDataById, contactData, updateData, userNameData,updateOnlineStatus,creategroup
+  ,fetchgroup,searchgroup,joingroup,sendmessageingroup,fetchgroupmessage,fetchgroupdetail
+ };

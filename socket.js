@@ -1,8 +1,11 @@
 import { Server as WebSocketServer } from 'socket.io';
+import {Group} from './models/groupSchema.js';
+import {User} from './models/userSchema.js';
 
 const setupSocket = (server) => {
     const io = new WebSocketServer(server, {
         cors: {
+            // origin: "http://localhost:5173",
             origin: "https://chat-box-frontend-sigma.vercel.app",
             methods: ["GET", "POST"],
             credentials: true // Allow credentials (cookies, authorization headers, etc.)
@@ -89,6 +92,41 @@ const setupSocket = (server) => {
                 }
             }
         });
+
+        const socketmember = [];
+
+        const userSocket = async (id) => {
+            const user = await User.findById(id);
+            return user.socketId;
+        };
+        
+        const fetchGroupMemberSocket = async (groupId) => {
+            const group = await Group.findById(groupId);
+            // Clear previous socket members
+            socketmember.length = 0; // Reset the array
+        
+            await Promise.all(group.members.map(async (id) => {
+                const iid = await userSocket(id); // Await the result
+                if (iid) socketmember.push(iid); // Push to array if valid
+            }));
+        
+            return socketmember;
+        };
+        
+        socket.on('send-message-group', async ({ groupId, messageContent, senderSocketId }) => {
+            // Fetch the socket IDs of group members
+            await fetchGroupMemberSocket(groupId);
+            
+            // Emit the message to each member's socket
+            console.log(socketmember)
+            socketmember.forEach((s) => {
+                if(s!=senderSocketId){
+                console.log(s);
+                io.to(s).emit('received-message-from-group', { messageContent }); // Use 'receive-message' as the event name
+                }
+            });
+        });
+        
     });
 };
 
