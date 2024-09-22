@@ -5,8 +5,7 @@ import {User} from './models/userSchema.js';
 const setupSocket = (server) => {
     const io = new WebSocketServer(server, {
         cors: {
-            // origin: "http://localhost:5173",
-            origin: "https://chat-box-frontend-sigma.vercel.app",
+            origin: "http://localhost:5173",
             methods: ["GET", "POST"],
             credentials: true // Allow credentials (cookies, authorization headers, etc.)
         },
@@ -113,16 +112,15 @@ const setupSocket = (server) => {
             return socketmember;
         };
         
-        socket.on('send-message-group', async ({ groupId, messageContent, senderSocketId }) => {
+        socket.on('send-message-group', async ({ groupId, messageContent, senderSocketId,userId,senderName }) => {
             // Fetch the socket IDs of group members
             await fetchGroupMemberSocket(groupId);
-            
             // Emit the message to each member's socket
             console.log(socketmember)
             socketmember.forEach((s) => {
                 if(s!=senderSocketId){
                 console.log(s);
-                io.to(s).emit('received-message-from-group', { messageContent }); // Use 'receive-message' as the event name
+                io.to(s).emit('received-message-from-group', {userId,senderName,messageContent }); // Use 'receive-message' as the event name
                 }
             });
         });
